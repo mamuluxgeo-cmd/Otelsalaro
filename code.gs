@@ -53,9 +53,14 @@ function doGet(e) {
   try {
     const payload = getGetPayload(e);
     const action = payload.action || 'ping';
-    return jsonResponse(handleAction(action, payload));
+    const result = handleAction(action, payload);
+    if (payload.callback) return jsonpResponse(result, payload.callback);
+    return jsonResponse(result);
   } catch (err) {
-    return jsonResponse(errorResult(err));
+    const params = e && e.parameter ? e.parameter : {};
+    const result = errorResult(err);
+    if (params.callback) return jsonpResponse(result, params.callback);
+    return jsonResponse(result);
   }
 }
 
@@ -255,7 +260,7 @@ function closeShift(payload) {
   lock.waitLock(30000);
   try {
     const expected = calculateExpectedByPayment({ shiftId: payload.shiftId });
-    const actualByPayment = payload.actualByPayment || {};
+    const actualByPayment = typeof payload.actualByPayment === 'string' ? JSON.parse(payload.actualByPayment || '{}') : (payload.actualByPayment || {});
     const paymentMethods = getRowsAsObjects(SHEETS.PAYMENT_METHODS);
     const cashIds = paymentMethods.filter(pm => pm.type === 'cash').map(pm => pm.id);
     const allIds = unique(Object.keys(expected.byPayment).concat(Object.keys(actualByPayment)));
@@ -286,7 +291,7 @@ function closeShift(payload) {
 }
 
 function submitBatch(payload) {
-  const operations = payload.operations || [];
+  const operations = typeof payload.operations === 'string' ? JSON.parse(payload.operations || '[]') : (payload.operations || []);
   if (!Array.isArray(operations)) throw new Error('operations უნდა იყოს სია');
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -522,6 +527,10 @@ function makeStableColor(text) { let hash = 0; String(text || '').split('').forE
 function ok(data) { return { success: true, data: data }; }
 function errorResult(err) { return { success: false, error: String(err.message || err), time: nowIso() }; }
 function jsonResponse(data) { return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON); }
+function jsonpResponse(data, callback) {
+  const safeCallback = String(callback || 'callback').replace(/[^a-zA-Z0-9_.$]/g, '');
+  return ContentService.createTextOutput(safeCallback + '(' + JSON.stringify(data) + ');').setMimeType(ContentService.MimeType.JAVASCRIPT);
+}
 
 function parsePostPayload(e) {
   if (!e || !e.postData) return {};
