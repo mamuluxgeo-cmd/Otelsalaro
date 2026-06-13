@@ -7,8 +7,8 @@
 const CONFIG = {
   SPREADSHEET_ID: '1f6oVzM8xF3ZL211T2KcpG1UN9MFmGn5lOiu6lsndDXs',
   TIMEZONE: 'Asia/Tbilisi',
-  CACHE_SECONDS: 240,
-  CACHE_KEY_BOOTSTRAP: 'OTEL_SALARO_BOOTSTRAP_V1'
+  CACHE_SECONDS: 120,
+  CACHE_KEY_BOOTSTRAP: 'OTEL_SALARO_BOOTSTRAP_V2'
 };
 
 const SHEETS = {
@@ -150,7 +150,7 @@ function addSalesChannel(payload) {
 
 function updateSalesChannel(payload) {
   requireText(payload.id, 'ID აუცილებელია');
-  const item = updateObjectById(SHEETS.SALES_CHANNELS, payload.id, { name: payload.name, color: payload.color, status: payload.status, updatedAt: nowIso() }, payload.comment || '');
+  const item = updateObjectById(SHEETS.SALES_CHANNELS, payload.id, { name: payload.name, color: payload.color, status: payload.status, updatedAt: nowIso() }, payload.editComment || payload.comment || '');
   clearAppCache();
   return ok({ item: item });
 }
@@ -165,7 +165,7 @@ function addPaymentMethod(payload) {
 
 function updatePaymentMethod(payload) {
   requireText(payload.id, 'ID აუცილებელია');
-  const item = updateObjectById(SHEETS.PAYMENT_METHODS, payload.id, { name: payload.name, type: payload.type, color: payload.color, status: payload.status, updatedAt: nowIso() }, payload.comment || '');
+  const item = updateObjectById(SHEETS.PAYMENT_METHODS, payload.id, { name: payload.name, type: payload.type, color: payload.color, status: payload.status, updatedAt: nowIso() }, payload.editComment || payload.comment || '');
   clearAppCache();
   return ok({ item: item });
 }
@@ -180,13 +180,13 @@ function addRoom(payload) {
 
 function updateRoom(payload) {
   requireText(payload.id, 'ID აუცილებელია');
-  const item = updateObjectById(SHEETS.ROOMS, payload.id, { roomName: payload.roomName, description: payload.description, status: payload.status, updatedAt: nowIso() }, payload.comment || '');
+  const item = updateObjectById(SHEETS.ROOMS, payload.id, { roomName: payload.roomName, description: payload.description, status: payload.status, updatedAt: nowIso() }, payload.editComment || payload.comment || '');
   clearAppCache();
   return ok({ item: item });
 }
 
 function openShift(payload) {
-  const item = { id: makeId('SH'), date: payload.date || todayDate(), openedAt: nowIso(), openingCash: toMoney(payload.openingCash), status: STATUS.OPEN, cashier: payload.cashier || '', comment: payload.comment || '', closedAt: '', createdAt: nowIso(), updatedAt: nowIso() };
+  const item = { id: makeId('SH'), date: normalizeDateOnly(payload.date || todayDate()), openedAt: nowIso(), openingCash: toMoney(payload.openingCash), status: STATUS.OPEN, cashier: payload.cashier || '', comment: payload.comment || '', closedAt: '', createdAt: nowIso(), updatedAt: nowIso() };
   appendObject(SHEETS.SHIFTS, item);
   clearAppCache();
   return ok({ item: item });
@@ -194,7 +194,7 @@ function openShift(payload) {
 
 function updateShift(payload) {
   requireText(payload.id, 'Shift ID აუცილებელია');
-  const item = updateObjectById(SHEETS.SHIFTS, payload.id, { date: payload.date, openingCash: isEmpty(payload.openingCash) ? undefined : toMoney(payload.openingCash), status: payload.status, cashier: payload.cashier, comment: payload.comment, closedAt: payload.closedAt, updatedAt: nowIso() }, payload.editComment || '');
+  const item = updateObjectById(SHEETS.SHIFTS, payload.id, { date: payload.date ? normalizeDateOnly(payload.date) : undefined, openingCash: isEmpty(payload.openingCash) ? undefined : toMoney(payload.openingCash), status: payload.status, cashier: payload.cashier, comment: payload.comment, closedAt: payload.closedAt, updatedAt: nowIso() }, payload.editComment || '');
   clearAppCache();
   return ok({ item: item });
 }
@@ -202,7 +202,7 @@ function updateShift(payload) {
 function addTransaction(payload) {
   const amount = toMoney(payload.amount);
   if (amount <= 0) throw new Error('შემოსავლის თანხა უნდა იყოს 0-ზე მეტი');
-  const item = { id: makeId('TR'), shiftId: payload.shiftId || '', date: payload.date || todayDate(), type: payload.type || 'room_income', roomId: payload.roomId || '', salesChannelId: payload.salesChannelId || '', paymentMethodId: payload.paymentMethodId || '', amount: amount, comment: payload.comment || '', status: payload.status || STATUS.ACTIVE, createdAt: nowIso(), updatedAt: nowIso() };
+  const item = { id: makeId('TR'), shiftId: payload.shiftId || '', date: normalizeDateOnly(payload.date || todayDate()), type: payload.type || 'room_income', roomId: payload.roomId || '', salesChannelId: payload.salesChannelId || '', paymentMethodId: payload.paymentMethodId || '', amount: amount, comment: payload.comment || '', status: payload.status || STATUS.ACTIVE, createdAt: nowIso(), updatedAt: nowIso() };
   appendObject(SHEETS.TRANSACTIONS, item);
   clearAppCache();
   return ok({ item: item });
@@ -210,7 +210,7 @@ function addTransaction(payload) {
 
 function updateTransaction(payload) {
   requireText(payload.id, 'Transaction ID აუცილებელია');
-  const item = updateObjectById(SHEETS.TRANSACTIONS, payload.id, { shiftId: payload.shiftId, date: payload.date, type: payload.type, roomId: payload.roomId, salesChannelId: payload.salesChannelId, paymentMethodId: payload.paymentMethodId, amount: isEmpty(payload.amount) ? undefined : toMoney(payload.amount), comment: payload.comment, status: payload.status, updatedAt: nowIso() }, payload.editComment || '');
+  const item = updateObjectById(SHEETS.TRANSACTIONS, payload.id, { shiftId: payload.shiftId, date: payload.date ? normalizeDateOnly(payload.date) : undefined, type: payload.type, roomId: payload.roomId, salesChannelId: payload.salesChannelId, paymentMethodId: payload.paymentMethodId, amount: isEmpty(payload.amount) ? undefined : toMoney(payload.amount), comment: payload.comment, status: payload.status, updatedAt: nowIso() }, payload.editComment || '');
   clearAppCache();
   return ok({ item: item });
 }
@@ -218,7 +218,7 @@ function updateTransaction(payload) {
 function addExpense(payload) {
   const amount = toMoney(payload.amount);
   if (amount <= 0) throw new Error('ხარჯის თანხა უნდა იყოს 0-ზე მეტი');
-  const item = { id: makeId('EX'), shiftId: payload.shiftId || '', date: payload.date || todayDate(), purpose: payload.purpose || '', paymentMethodId: payload.paymentMethodId || '', amount: amount, comment: payload.comment || '', status: payload.status || STATUS.ACTIVE, createdAt: nowIso(), updatedAt: nowIso() };
+  const item = { id: makeId('EX'), shiftId: payload.shiftId || '', date: normalizeDateOnly(payload.date || todayDate()), purpose: payload.purpose || '', paymentMethodId: payload.paymentMethodId || '', amount: amount, comment: payload.comment || '', status: payload.status || STATUS.ACTIVE, createdAt: nowIso(), updatedAt: nowIso() };
   appendObject(SHEETS.EXPENSES, item);
   clearAppCache();
   return ok({ item: item });
@@ -226,7 +226,7 @@ function addExpense(payload) {
 
 function updateExpense(payload) {
   requireText(payload.id, 'Expense ID აუცილებელია');
-  const item = updateObjectById(SHEETS.EXPENSES, payload.id, { shiftId: payload.shiftId, date: payload.date, purpose: payload.purpose, paymentMethodId: payload.paymentMethodId, amount: isEmpty(payload.amount) ? undefined : toMoney(payload.amount), comment: payload.comment, status: payload.status, updatedAt: nowIso() }, payload.editComment || '');
+  const item = updateObjectById(SHEETS.EXPENSES, payload.id, { shiftId: payload.shiftId, date: payload.date ? normalizeDateOnly(payload.date) : undefined, purpose: payload.purpose, paymentMethodId: payload.paymentMethodId, amount: isEmpty(payload.amount) ? undefined : toMoney(payload.amount), comment: payload.comment, status: payload.status, updatedAt: nowIso() }, payload.editComment || '');
   clearAppCache();
   return ok({ item: item });
 }
@@ -234,7 +234,7 @@ function updateExpense(payload) {
 function addWithdrawal(payload) {
   const amount = toMoney(payload.amount);
   if (amount <= 0) throw new Error('გატანის თანხა უნდა იყოს 0-ზე მეტი');
-  const item = { id: makeId('WD'), shiftId: payload.shiftId || '', date: payload.date || todayDate(), paymentMethodId: payload.paymentMethodId || '', amount: amount, givenTo: payload.givenTo || '', purpose: payload.purpose || 'ინკასაცია', comment: payload.comment || '', status: payload.status || STATUS.ACTIVE, createdAt: nowIso(), updatedAt: nowIso() };
+  const item = { id: makeId('WD'), shiftId: payload.shiftId || '', date: normalizeDateOnly(payload.date || todayDate()), paymentMethodId: payload.paymentMethodId || '', amount: amount, givenTo: payload.givenTo || '', purpose: payload.purpose || 'ინკასაცია', comment: payload.comment || '', status: payload.status || STATUS.ACTIVE, createdAt: nowIso(), updatedAt: nowIso() };
   appendObject(SHEETS.WITHDRAWALS, item);
   clearAppCache();
   return ok({ item: item });
@@ -242,13 +242,13 @@ function addWithdrawal(payload) {
 
 function updateWithdrawal(payload) {
   requireText(payload.id, 'Withdrawal ID აუცილებელია');
-  const item = updateObjectById(SHEETS.WITHDRAWALS, payload.id, { shiftId: payload.shiftId, date: payload.date, paymentMethodId: payload.paymentMethodId, amount: isEmpty(payload.amount) ? undefined : toMoney(payload.amount), givenTo: payload.givenTo, purpose: payload.purpose, comment: payload.comment, status: payload.status, updatedAt: nowIso() }, payload.editComment || '');
+  const item = updateObjectById(SHEETS.WITHDRAWALS, payload.id, { shiftId: payload.shiftId, date: payload.date ? normalizeDateOnly(payload.date) : undefined, paymentMethodId: payload.paymentMethodId, amount: isEmpty(payload.amount) ? undefined : toMoney(payload.amount), givenTo: payload.givenTo, purpose: payload.purpose, comment: payload.comment, status: payload.status, updatedAt: nowIso() }, payload.editComment || '');
   clearAppCache();
   return ok({ item: item });
 }
 
 function addAdjustment(payload) {
-  const item = { id: makeId('AD'), shiftId: payload.shiftId || '', date: payload.date || todayDate(), targetType: payload.targetType || 'shift_difference', targetId: payload.targetId || '', amount: toMoney(payload.amount || 0), comment: payload.comment || '', status: payload.status || STATUS.ACTIVE, createdAt: nowIso(), updatedAt: nowIso() };
+  const item = { id: makeId('AD'), shiftId: payload.shiftId || '', date: normalizeDateOnly(payload.date || todayDate()), targetType: payload.targetType || 'shift_difference', targetId: payload.targetId || '', amount: toMoney(payload.amount || 0), comment: payload.comment || '', status: payload.status || STATUS.ACTIVE, createdAt: nowIso(), updatedAt: nowIso() };
   appendObject(SHEETS.ADJUSTMENTS, item);
   clearAppCache();
   return ok({ item: item });
@@ -260,7 +260,7 @@ function closeShift(payload) {
   lock.waitLock(30000);
   try {
     const expected = calculateExpectedByPayment({ shiftId: payload.shiftId });
-    const actualByPayment = typeof payload.actualByPayment === 'string' ? JSON.parse(payload.actualByPayment || '{}') : (payload.actualByPayment || {});
+    const actualByPayment = parseMaybeJson(payload.actualByPayment, {});
     const paymentMethods = getRowsAsObjects(SHEETS.PAYMENT_METHODS);
     const cashIds = paymentMethods.filter(pm => pm.type === 'cash').map(pm => pm.id);
     const allIds = unique(Object.keys(expected.byPayment).concat(Object.keys(actualByPayment)));
@@ -273,7 +273,7 @@ function closeShift(payload) {
       if (cashIds.indexOf(id) !== -1) { expectedCash += ex; actualCash += ac; }
     });
     const closeId = makeId('CL');
-    const closeItem = { id: closeId, shiftId: payload.shiftId, date: payload.date || todayDate(), expectedTotal: round2(expectedTotal), actualTotal: round2(actualTotal), totalDiff: round2(actualTotal - expectedTotal), expectedCash: round2(expectedCash), actualCash: round2(actualCash), cashDiff: round2(actualCash - expectedCash), status: STATUS.CLOSED, comment: payload.comment || '', createdAt: nowIso(), updatedAt: nowIso() };
+    const closeItem = { id: closeId, shiftId: payload.shiftId, date: normalizeDateOnly(payload.date || todayDate()), expectedTotal: round2(expectedTotal), actualTotal: round2(actualTotal), totalDiff: round2(actualTotal - expectedTotal), expectedCash: round2(expectedCash), actualCash: round2(actualCash), cashDiff: round2(actualCash - expectedCash), status: STATUS.CLOSED, comment: payload.comment || '', createdAt: nowIso(), updatedAt: nowIso() };
     appendObject(SHEETS.SHIFT_CLOSE, closeItem);
     const details = allIds.map(function(id) {
       const ex = toMoney(expected.byPayment[id] || 0);
@@ -291,7 +291,7 @@ function closeShift(payload) {
 }
 
 function submitBatch(payload) {
-  const operations = typeof payload.operations === 'string' ? JSON.parse(payload.operations || '[]') : (payload.operations || []);
+  const operations = parseMaybeJson(payload.operations, []);
   if (!Array.isArray(operations)) throw new Error('operations უნდა იყოს სია');
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -323,7 +323,7 @@ function getHistory(payload) {
 }
 
 function getStats(payload) {
-  const filters = normalizeFilters(payload);
+  const filters = normalizeFilters(payload || {});
   const paymentMethods = getRowsAsObjects(SHEETS.PAYMENT_METHODS);
   const channels = getRowsAsObjects(SHEETS.SALES_CHANNELS);
   const rooms = getRowsAsObjects(SHEETS.ROOMS);
@@ -355,15 +355,16 @@ function getStats(payload) {
 
 function calculateExpectedByPayment(filters) {
   const byPayment = {};
-  const shifts = filters.shiftId ? getRowsAsObjects(SHEETS.SHIFTS).filter(s => s.id === filters.shiftId) : [];
+  const normalized = normalizeFilters(filters || {});
+  const shifts = normalized.shiftId ? getRowsAsObjects(SHEETS.SHIFTS).filter(s => s.id === normalized.shiftId) : [];
   const paymentMethods = getRowsAsObjects(SHEETS.PAYMENT_METHODS);
   const cash = paymentMethods.find(pm => pm.type === 'cash');
   shifts.forEach(function(shift) {
     if (cash) byPayment[cash.id] = round2((byPayment[cash.id] || 0) + toMoney(shift.openingCash));
   });
-  const tx = filterRows(getRowsAsObjects(SHEETS.TRANSACTIONS), filters).filter(isActiveRow);
-  const ex = filterRows(getRowsAsObjects(SHEETS.EXPENSES), filters).filter(isActiveRow);
-  const wd = filterRows(getRowsAsObjects(SHEETS.WITHDRAWALS), filters).filter(isActiveRow);
+  const tx = filterRows(getRowsAsObjects(SHEETS.TRANSACTIONS), normalized).filter(isActiveRow);
+  const ex = filterRows(getRowsAsObjects(SHEETS.EXPENSES), normalized).filter(isActiveRow);
+  const wd = filterRows(getRowsAsObjects(SHEETS.WITHDRAWALS), normalized).filter(isActiveRow);
   tx.forEach(r => byPayment[r.paymentMethodId] = round2((byPayment[r.paymentMethodId] || 0) + toMoney(r.amount)));
   ex.forEach(r => byPayment[r.paymentMethodId] = round2((byPayment[r.paymentMethodId] || 0) - toMoney(r.amount)));
   wd.forEach(r => byPayment[r.paymentMethodId] = round2((byPayment[r.paymentMethodId] || 0) - toMoney(r.amount)));
@@ -431,6 +432,7 @@ function getRowsAsObjects(sheetName) {
   return values.map(function(row) {
     const obj = {};
     headers.forEach((h, i) => obj[h] = normalizeCell(row[i]));
+    if (obj.date) obj.date = normalizeDateOnly(obj.date);
     return obj;
   }).filter(r => r.id !== '');
 }
@@ -453,7 +455,7 @@ function updateObjectById(sheetName, id, fields, comment) {
     const col = headers.indexOf(key) + 1;
     if (col <= 0) return;
     const oldValue = current[key];
-    const newValue = fields[key];
+    const newValue = key === 'date' ? normalizeDateOnly(fields[key]) : fields[key];
     if (String(oldValue) !== String(newValue)) {
       sheet.getRange(rowNumber, col).setValue(newValue);
       logEdit(sheetName, id, 'update', key, oldValue, newValue, comment || '');
@@ -468,15 +470,17 @@ function logEdit(sheetName, rowId, action, field, oldValue, newValue, comment) {
 }
 
 function filterRows(rows, filters) {
+  const f = normalizeFilters(filters || {});
   return rows.filter(function(row) {
-    if (filters.shiftId && row.shiftId !== filters.shiftId && row.id !== filters.shiftId) return false;
-    if (filters.dateFrom && String(row.date) < filters.dateFrom) return false;
-    if (filters.dateTo && String(row.date) > filters.dateTo) return false;
-    if (filters.paymentMethodId && row.paymentMethodId !== filters.paymentMethodId) return false;
-    if (filters.salesChannelId && row.salesChannelId !== filters.salesChannelId) return false;
-    if (filters.roomId && row.roomId !== filters.roomId) return false;
-    if (filters.type && row.type !== filters.type) return false;
-    if (filters.status && row.status !== filters.status) return false;
+    if (f.shiftId && row.shiftId !== f.shiftId && row.id !== f.shiftId) return false;
+    const rowDate = normalizeDateOnly(row.date || row.createdAt || '');
+    if (f.dateFrom && rowDate && rowDate < f.dateFrom) return false;
+    if (f.dateTo && rowDate && rowDate > f.dateTo) return false;
+    if (f.paymentMethodId && row.paymentMethodId !== f.paymentMethodId) return false;
+    if (f.salesChannelId && row.salesChannelId !== f.salesChannelId) return false;
+    if (f.roomId && row.roomId !== f.roomId) return false;
+    if (f.type && row.type !== f.type) return false;
+    if (f.status && row.status !== f.status) return false;
     return true;
   });
 }
@@ -484,8 +488,8 @@ function filterRows(rows, filters) {
 function normalizeFilters(payload) {
   return {
     shiftId: payload.shiftId || '',
-    dateFrom: payload.dateFrom || '',
-    dateTo: payload.dateTo || '',
+    dateFrom: payload.dateFrom ? normalizeDateOnly(payload.dateFrom) : '',
+    dateTo: payload.dateTo ? normalizeDateOnly(payload.dateTo) : '',
     paymentMethodId: payload.paymentMethodId || '',
     salesChannelId: payload.salesChannelId || '',
     roomId: payload.roomId || '',
@@ -509,6 +513,11 @@ function findRefName(refs, key, id) {
   return item ? (item.name || item.roomName || id) : id;
 }
 
+function clearOtelCacheNow() {
+  clearAppCache();
+  return 'OK - cache cleared';
+}
+
 function sumBy(rows, key) { return round2((rows || []).reduce((sum, r) => sum + toMoney(r[key]), 0)); }
 function isActiveRow(row) { return row.status !== STATUS.CANCELED && row.status !== STATUS.INACTIVE; }
 function unique(arr) { return Array.from(new Set(arr.filter(Boolean))); }
@@ -522,7 +531,21 @@ function clean(value) { return String(value || '').trim(); }
 function isEmpty(value) { return value === undefined || value === null || value === ''; }
 function requireText(value, message) { if (!clean(value)) throw new Error(message); }
 function toBool(value) { return value === true || value === 'true' || value === '1' || value === 1; }
-function normalizeCell(value) { return value instanceof Date ? Utilities.formatDate(value, CONFIG.TIMEZONE, 'yyyy-MM-dd HH:mm:ss') : value; }
+function parseMaybeJson(value, fallback) { if (typeof value !== 'string') return value === undefined || value === null ? fallback : value; try { return JSON.parse(value || JSON.stringify(fallback)); } catch (err) { return fallback; } }
+function normalizeCell(value) {
+  if (value instanceof Date) return Utilities.formatDate(value, CONFIG.TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
+  return value;
+}
+function normalizeDateOnly(value) {
+  if (!value) return '';
+  if (value instanceof Date) return Utilities.formatDate(value, CONFIG.TIMEZONE, 'yyyy-MM-dd');
+  const s = String(value).trim();
+  const match = s.match(/\d{4}-\d{2}-\d{2}/);
+  if (match) return match[0];
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return Utilities.formatDate(d, CONFIG.TIMEZONE, 'yyyy-MM-dd');
+  return s.slice(0, 10);
+}
 function makeStableColor(text) { let hash = 0; String(text || '').split('').forEach(ch => hash = ((hash << 5) - hash) + ch.charCodeAt(0)); return COLORS[Math.abs(hash) % COLORS.length]; }
 function ok(data) { return { success: true, data: data }; }
 function errorResult(err) { return { success: false, error: String(err.message || err), time: nowIso() }; }
