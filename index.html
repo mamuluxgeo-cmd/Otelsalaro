@@ -144,7 +144,7 @@
       <section class="page" id="settings">
         <div class="grid three-col">
           <div class="panel">
-            <div class="panel-head"><h3>გაყიდვების არხი</h3><span>დამატება</span></div>
+            <div class="panel-head"><h3>გაყიდვების არხი</h3><span>დამატება / რედაქტირება</span></div>
             <form id="salesChannelForm" class="form-grid one">
               <label>სახელი<input name="name" required placeholder="მაგ: Booking" /></label>
               <button class="liquid-btn" type="submit">დამატება</button>
@@ -152,7 +152,7 @@
             <div id="salesChannelList" class="mini-list"></div>
           </div>
           <div class="panel">
-            <div class="panel-head"><h3>ბანკი / გადახდა</h3><span>დამატება</span></div>
+            <div class="panel-head"><h3>ბანკი / გადახდა</h3><span>დამატება / რედაქტირება</span></div>
             <form id="paymentMethodForm" class="form-grid one">
               <label>სახელი<input name="name" required placeholder="მაგ: TBC" /></label>
               <label>ტიპი<select name="type"><option value="cash">ქეში</option><option value="bank">ბანკი</option><option value="terminal">ტერმინალი</option><option value="transfer">გადარიცხვა</option></select></label>
@@ -161,7 +161,7 @@
             <div id="paymentMethodList" class="mini-list"></div>
           </div>
           <div class="panel">
-            <div class="panel-head"><h3>ნომერი</h3><span>დამატება</span></div>
+            <div class="panel-head"><h3>ნომერი</h3><span>დამატება / რედაქტირება</span></div>
             <form id="roomForm" class="form-grid one">
               <label>ნომერი<input name="roomName" required placeholder="მაგ: 101" /></label>
               <label>აღწერა<input name="description" placeholder="სურვილისამებრ" /></label>
@@ -193,6 +193,20 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div id="editModal" class="modal hidden">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">რედაქტირება</p>
+          <h3 id="editTitle">ჩანაწერის შეცვლა</h3>
+        </div>
+        <button class="modal-x" type="button" data-close-modal>×</button>
+      </div>
+      <form id="editForm" class="form-grid one"></form>
+    </div>
   </div>
 
   <div id="toast" class="toast"></div>
