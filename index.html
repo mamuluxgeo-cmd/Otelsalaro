@@ -19,6 +19,7 @@
 
       <nav class="nav-list">
         <button class="nav-btn active" data-page="dashboard">მთავარი</button>
+        <button class="nav-btn protected" data-page="dailyReport">დღის პროცესი</button>
         <button class="nav-btn" data-page="income">შემოსავალი</button>
         <button class="nav-btn" data-page="expense">ხარჯები</button>
         <button class="nav-btn" data-page="withdrawal">ინკასაცია</button>
@@ -77,6 +78,43 @@
         <div class="panel">
           <div class="panel-head"><h3>გადახდის წყაროები</h3><span>ფერებით მარტივი აღქმისთვის</span></div>
           <div id="paymentChips" class="chip-row"></div>
+        </div>
+      </section>
+
+      <section class="page" id="dailyReport">
+        <div class="report-hero">
+          <div>
+            <p class="eyebrow">დაცული გვერდი</p>
+            <h3>დღის მიმდინარე პროცესი</h3>
+            <span id="reportDateText">დღევანდელი დღე</span>
+          </div>
+          <div class="report-actions">
+            <button class="liquid-btn ghost" id="lockReportBtn" type="button">დაბლოკვა</button>
+            <button class="liquid-btn" id="refreshReportBtn" type="button">განახლება</button>
+          </div>
+        </div>
+
+        <div class="grid cards-4 report-summary">
+          <div class="stat-card"><span>დილის კასა</span><strong id="reportOpeningCash">0 ₾</strong></div>
+          <div class="stat-card"><span>შემოსავალი</span><strong id="reportIncome">0 ₾</strong></div>
+          <div class="stat-card"><span>ხარჯი</span><strong id="reportExpense">0 ₾</strong></div>
+          <div class="stat-card accent"><span>ქეში უნდა იყოს</span><strong id="reportExpectedCash">0 ₾</strong></div>
+        </div>
+
+        <div class="grid two-col">
+          <div class="panel">
+            <div class="panel-head"><h3>წყაროების მიხედვით</h3><span>ქეში / ბანკი / ტერმინალი</span></div>
+            <div id="reportPaymentGrid" class="source-grid"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>დღის შეჯამება</h3><span>მიმდინარე ნაშთი</span></div>
+            <div id="reportTotals" class="report-totals"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h3>დღის ოპერაციები</h3><span>შემოსავალი / ხარჯი / ინკასაცია</span></div>
+          <div id="reportTransactions" class="table-wrap"></div>
         </div>
       </section>
 
@@ -206,6 +244,23 @@
         <button class="modal-x" type="button" data-close-modal>×</button>
       </div>
       <form id="editForm" class="form-grid one"></form>
+    </div>
+  </div>
+
+  <div id="reportLockModal" class="modal hidden">
+    <div class="modal-backdrop" data-close-report-lock></div>
+    <div class="modal-card lock-card">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">დაცული გვერდი</p>
+          <h3>დღის პროცესში შესვლა</h3>
+        </div>
+        <button class="modal-x" type="button" data-close-report-lock>×</button>
+      </div>
+      <form id="reportPasswordForm" class="form-grid one">
+        <label>პაროლი<input id="reportPassword" type="password" inputmode="numeric" autocomplete="off" placeholder="შეიყვანე პაროლი" required /></label>
+        <button class="liquid-btn" type="submit">შესვლა</button>
+      </form>
     </div>
   </div>
 
