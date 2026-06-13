@@ -3,7 +3,8 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbyKkNVxzAE9QQRKxYaMwGN5
 const state = {
   bootstrap: { salesChannels: [], paymentMethods: [], rooms: [], shifts: [], lastOpenShift: null },
   stats: null,
-  history: []
+  history: [],
+  editing: null
 };
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -16,6 +17,10 @@ function money(value) {
 
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function esc(value) {
+  return String(value ?? '').replace(/[&<>"]/g, (s) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[s]));
 }
 
 function toast(message, isError = false) {
@@ -106,7 +111,7 @@ function fillSelect(id, rows, labelKey, placeholder = 'აირჩიე') {
   const select = $(id);
   if (!select) return;
   const current = select.value;
-  select.innerHTML = `<option value="">${placeholder}</option>` + activeRows(rows).map(item => `<option value="${item.id}">${item[labelKey] || item.name}</option>`).join('');
+  select.innerHTML = `<option value="">${placeholder}</option>` + activeRows(rows).map(item => `<option value="${esc(item.id)}">${esc(item[labelKey] || item.name)}</option>`).join('');
   if (current) select.value = current;
 }
 
@@ -128,17 +133,125 @@ function renderPaymentChips() {
 }
 
 function chip(name, color) {
-  return `<span class="chip"><i class="chip-color" style="background:${color || '#64748b'}"></i>${name}</span>`;
+  return `<span class="chip"><i class="chip-color" style="background:${esc(color || '#64748b')}"></i>${esc(name)}</span>`;
 }
 
 function renderSettingsLists() {
-  $('#salesChannelList').innerHTML = activeRows(state.bootstrap.salesChannels).map(item => miniItem(item.name, item.color)).join('');
-  $('#paymentMethodList').innerHTML = activeRows(state.bootstrap.paymentMethods).map(item => miniItem(`${item.name} • ${item.type}`, item.color)).join('');
-  $('#roomList').innerHTML = activeRows(state.bootstrap.rooms).map(item => miniItem(item.roomName, '#334155')).join('');
+  $('#salesChannelList').innerHTML = activeRows(state.bootstrap.salesChannels).map(item => editableMiniItem('salesChannel', item, item.name, item.color)).join('') || '<div class="empty-state">არხი ჯერ არ არის.</div>';
+  $('#paymentMethodList').innerHTML = activeRows(state.bootstrap.paymentMethods).map(item => editableMiniItem('paymentMethod', item, `${item.name} • ${item.type}`, item.color)).join('') || '<div class="empty-state">გადახდის წყარო ჯერ არ არის.</div>';
+  $('#roomList').innerHTML = activeRows(state.bootstrap.rooms).map(item => editableMiniItem('room', item, item.description ? `${item.roomName} • ${item.description}` : item.roomName, '#334155')).join('') || '<div class="empty-state">ნომერი ჯერ არ არის.</div>';
 }
 
-function miniItem(text, color) {
-  return `<span class="mini-item"><i class="chip-color" style="background:${color || '#64748b'}"></i>${text}</span>`;
+function editableMiniItem(kind, item, text, color) {
+  return `
+    <span class="mini-item editable">
+      <i class="chip-color" style="background:${esc(color || '#64748b')}"></i>
+      <span class="mini-item-name">${esc(text)}</span>
+      <button class="edit-btn" type="button" data-edit-kind="${esc(kind)}" data-edit-id="${esc(item.id)}">რედაქტირება</button>
+    </span>`;
+}
+
+function findByKind(kind, id) {
+  const map = {
+    salesChannel: state.bootstrap.salesChannels,
+    paymentMethod: state.bootstrap.paymentMethods,
+    room: state.bootstrap.rooms
+  };
+  return (map[kind] || []).find(item => String(item.id) === String(id));
+}
+
+function openEditModal(kind, id) {
+  const item = findByKind(kind, id);
+  if (!item) {
+    toast('ჩანაწერი ვერ მოიძებნა', true);
+    return;
+  }
+  state.editing = { kind, id };
+  const form = $('#editForm');
+  const titles = {
+    salesChannel: 'გაყიდვების არხის რედაქტირება',
+    paymentMethod: 'ბანკის / გადახდის წყაროს რედაქტირება',
+    room: 'ნომრის რედაქტირება'
+  };
+  $('#editTitle').textContent = titles[kind] || 'რედაქტირება';
+
+  if (kind === 'salesChannel') {
+    form.innerHTML = `
+      <label>სახელი<input name="name" required value="${esc(item.name)}" /></label>
+      <label>ფერი<input name="color" type="color" value="${esc(item.color || '#2563eb')}" /></label>
+      ${statusField(item.status)}
+      ${editCommentField()}
+      ${modalActions()}`;
+  }
+
+  if (kind === 'paymentMethod') {
+    form.innerHTML = `
+      <label>სახელი<input name="name" required value="${esc(item.name)}" /></label>
+      <label>ტიპი<select name="type">
+        ${option('cash', 'ქეში', item.type)}
+        ${option('bank', 'ბანკი', item.type)}
+        ${option('terminal', 'ტერმინალი', item.type)}
+        ${option('transfer', 'გადარიცხვა', item.type)}
+      </select></label>
+      <label>ფერი<input name="color" type="color" value="${esc(item.color || '#2563eb')}" /></label>
+      ${statusField(item.status)}
+      ${editCommentField()}
+      ${modalActions()}`;
+  }
+
+  if (kind === 'room') {
+    form.innerHTML = `
+      <label>ნომერი<input name="roomName" required value="${esc(item.roomName)}" /></label>
+      <label>აღწერა<input name="description" value="${esc(item.description || '')}" /></label>
+      ${statusField(item.status)}
+      ${editCommentField()}
+      ${modalActions()}`;
+  }
+
+  $('#editModal').classList.remove('hidden');
+}
+
+function statusField(current = 'active') {
+  return `<label>სტატუსი<select name="status">${option('active', 'აქტიური', current)}${option('inactive', 'გამორთული', current)}</select></label>`;
+}
+
+function editCommentField() {
+  return '<label>ცვლილების კომენტარი<input name="editComment" placeholder="მაგ: სახელის შეცვლა" /></label>';
+}
+
+function modalActions() {
+  return '<div class="modal-actions"><button class="liquid-btn" type="submit">შენახვა</button><button class="liquid-btn ghost" type="button" data-close-modal>გაუქმება</button></div>';
+}
+
+function option(value, label, current) {
+  return `<option value="${esc(value)}" ${String(value) === String(current) ? 'selected' : ''}>${esc(label)}</option>`;
+}
+
+function closeEditModal() {
+  $('#editModal').classList.add('hidden');
+  $('#editForm').innerHTML = '';
+  state.editing = null;
+}
+
+async function saveEdit(form) {
+  if (!state.editing) return;
+  const payload = { id: state.editing.id, ...getFormData(form) };
+  const actions = {
+    salesChannel: 'updateSalesChannel',
+    paymentMethod: 'updatePaymentMethod',
+    room: 'updateRoom'
+  };
+  const action = actions[state.editing.kind];
+  if (!action) return;
+
+  try {
+    await api(action, payload);
+    toast('ცვლილება შენახულია');
+    closeEditModal();
+    await loadBootstrap(true);
+  } catch (err) {
+    toast(err.message, true);
+  }
 }
 
 function renderShift() {
@@ -154,10 +267,10 @@ function renderShift() {
   badge.textContent = 'გახსნილია';
   badge.className = 'pill open';
   info.innerHTML = `
-    <div class="small-card"><span>Shift ID</span><strong>${shift.id}</strong></div>
+    <div class="small-card"><span>Shift ID</span><strong>${esc(shift.id)}</strong></div>
     <div class="small-card"><span>დილის კასა</span><strong>${money(shift.openingCash)}</strong></div>
-    <div class="small-card"><span>მოლარე</span><strong>${shift.cashier || '-'}</strong></div>
-    <div class="small-card"><span>გახსნა</span><strong>${shift.openedAt || '-'}</strong></div>
+    <div class="small-card"><span>მოლარე</span><strong>${esc(shift.cashier || '-')}</strong></div>
+    <div class="small-card"><span>გახსნა</span><strong>${esc(shift.openedAt || '-')}</strong></div>
   `;
 }
 
@@ -182,7 +295,7 @@ function renderStats(stats) {
 }
 
 function renderGroupCards(title, rows = []) {
-  return rows.map(row => `<div class="small-card"><span>${title}: ${row.name || row.id}</span><strong>${money(row.amount)}</strong></div>`).join('');
+  return rows.map(row => `<div class="small-card"><span>${esc(title)}: ${esc(row.name || row.id)}</span><strong>${money(row.amount)}</strong></div>`).join('');
 }
 
 function renderHistory() {
@@ -194,7 +307,7 @@ function renderHistory() {
   $('#historyList').innerHTML = `
     <table class="data-table">
       <thead><tr><th>დრო</th><th>ტიპი</th><th>თანხა</th><th>კომენტარი</th><th>სტატუსი</th></tr></thead>
-      <tbody>${rows.map(row => `<tr><td>${row.createdAt || row.date || '-'}</td><td>${labelGroup(row.group)}</td><td>${money(row.amount || row.expectedTotal || 0)}</td><td>${row.comment || row.purpose || '-'}</td><td>${row.status || '-'}</td></tr>`).join('')}</tbody>
+      <tbody>${rows.map(row => `<tr><td>${esc(row.createdAt || row.date || '-')}</td><td>${esc(labelGroup(row.group))}</td><td>${money(row.amount || row.expectedTotal || 0)}</td><td>${esc(row.comment || row.purpose || '-')}</td><td>${esc(row.status || '-')}</td></tr>`).join('')}</tbody>
     </table>`;
 }
 
@@ -209,7 +322,7 @@ function renderCloseFields() {
     wrap.innerHTML = '<div class="empty-state full">ჯერ დაამატეთ ბანკები / გადახდის წყაროები.</div>';
     return;
   }
-  wrap.innerHTML = methods.map(pm => `<label>${pm.name}<input type="number" step="0.01" data-payment="${pm.id}" placeholder="რეალური თანხა" /></label>`).join('') + '<label class="full">კომენტარი<input id="closeComment" placeholder="დანაკლისი / მეტობა / ახსნა" /></label>';
+  wrap.innerHTML = methods.map(pm => `<label>${esc(pm.name)}<input type="number" step="0.01" data-payment="${esc(pm.id)}" placeholder="რეალური თანხა" /></label>`).join('') + '<label class="full">კომენტარი<input id="closeComment" placeholder="დანაკლისი / მეტობა / ახსნა" /></label>';
 }
 
 function getFormData(form) {
@@ -298,12 +411,34 @@ function bindForms() {
     });
     await submitAction('closeShift', { shiftId, actualByPayment, comment: $('#closeComment')?.value || '' }, null, 'ცვლა დაიხურა');
   });
+
+  $('#editForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveEdit(e.target);
+  });
 }
 
 function bindNavigation() {
   $$('.nav-btn').forEach(btn => btn.addEventListener('click', () => openPage(btn.dataset.page)));
   $$('[data-page-jump]').forEach(btn => btn.addEventListener('click', () => openPage(btn.dataset.pageJump)));
   $('#refreshBtn').addEventListener('click', () => loadBootstrap(true));
+}
+
+function bindEditControls() {
+  document.addEventListener('click', (e) => {
+    const editBtn = e.target.closest('[data-edit-kind]');
+    if (editBtn) {
+      openEditModal(editBtn.dataset.editKind, editBtn.dataset.editId);
+      return;
+    }
+    if (e.target.closest('[data-close-modal]')) {
+      closeEditModal();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeEditModal();
+  });
 }
 
 function openPage(pageId) {
@@ -322,5 +457,6 @@ function initDefaults() {
 
 bindNavigation();
 bindForms();
+bindEditControls();
 initDefaults();
 loadBootstrap(true);
